@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#00d4ff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="G·FORGE">
+<meta name="description" content="G·FORGE — Free AI CNC G-Code Generator powered by Google Gemini">
+<link rel="manifest" href="#" id="manifest-placeholder">
+<title>G·FORGE — AI CNC G-Code Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080b0e;--panel:#0d1117;--panel2:#111820;
+  --border:#1a2430;--border2:#243040;
+  --accent:#00d4ff;--accent2:#ff6b35;--accent3:#00ff88;
+  --warn:#ffcc00;--purple:#b060ff;
+  --text:#c0d0e0;--text2:#587080;--text3:#2a3a48;
+  --mono:'Share Tech Mono',monospace;
+  --disp:'Orbitron',monospace;
+  --body:'Rajdhani',sans-serif;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--body);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+
+/* BG */
+.bg-grid{position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(0,212,255,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.022) 1px,transparent 1px);
+  background-size:48px 48px}
+.bg-glow{position:fixed;pointer-events:none;z-index:0;width:800px;height:800px;border-radius:50%;
+  background:radial-gradient(circle,rgba(0,212,255,.03) 0%,transparent 65%);top:-250px;left:-200px}
+
+/* LAYOUT */
+.app{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* HEADER */
+header{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:50px;flex-shrink:0;
+  background:rgba(13,17,23,.97);border-bottom:1px solid var(--border);gap:10px;position:relative;z-index:10}
+.logo{font-family:var(--disp);font-weight:900;font-size:17px;letter-spacing:5px;color:var(--accent);
+  text-shadow:0 0 20px rgba(0,212,255,.5);display:flex;align-items:center;gap:8px;white-space:nowrap;flex-shrink:0}
+.logo-dot{color:var(--accent2)}
+.logo-sub{font-family:var(--mono);font-size:7px;color:var(--text3);letter-spacing:2px;font-weight:400;align-self:flex-end;margin-bottom:2px}
+.hbadges{display:flex;gap:5px;flex:1;justify-content:center;overflow:hidden;flex-wrap:wrap}
+.hbadge{padding:2px 8px;border:1px solid var(--border2);border-radius:2px;font-family:var(--mono);font-size:8px;color:var(--text2);white-space:nowrap}
+.hbadge.g{border-color:rgba(0,255,136,.3);color:var(--accent3)}
+.hbtns{display:flex;gap:6px;flex-shrink:0;align-items:center}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--accent3);box-shadow:0 0 8px var(--accent3);animation:pulse 2s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.hbtn{background:transparent;border:1px solid var(--border2);color:var(--text2);font-family:var(--mono);font-size:8px;
+  padding:4px 9px;cursor:pointer;border-radius:2px;letter-spacing:1px;transition:all .15s;white-space:nowrap}
+.hbtn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* BODY */
+.body{display:flex;flex:1;overflow:hidden}
+
+/* SIDEBAR */
+.sidebar{width:330px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:transform .3s}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border2)}
+.sec-head{display:flex;align-items:center;gap:7px;padding:8px 12px;border-bottom:1px solid var(--border);
+  font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:3px;text-transform:uppercase;flex-shrink:0}
+.sec-dot{width:4px;height:4px;border-radius:50%;background:var(--accent);flex-shrink:0}
+
+/* PARAMS */
+.pblock{padding:10px 12px;border-bottom:1px solid var(--border)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.field{display:flex;flex-direction:column;gap:3px}
+.flabel{font-family:var(--mono);font-size:7px;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase}
+select.fi,input.fi{background:var(--panel2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);
+  font-size:11px;padding:5px 7px;border-radius:2px;outline:none;width:100%;transition:border-color .2s}
+select.fi:focus,input.fi:focus{border-color:var(--accent)}
+select.fi option{background:#111820}
+input.fi[type=number]{-moz-appearance:textfield}
+input.fi[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+
+/* CHIPS */
+.chips{padding:9px 12px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:5px}
+.chip{padding:3px 8px;border:1px solid var(--border2);border-radius:2px;font-family:var(--mono);font-size:8px;
+  color:var(--text2);cursor:pointer;transition:all .14s;background:transparent;letter-spacing:.8px}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip.on{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.07)}
+
+/* PROMPT */
+.prompt-area{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:7px;flex:1}
+.pmeta{display:flex;justify-content:space-between;align-items:center}
+.pchars{font-family:var(--mono);font-size:8px;color:var(--text3)}
+textarea#prompt{background:var(--panel2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);
+  font-size:11px;padding:9px;border-radius:2px;resize:none;min-height:110px;outline:none;line-height:1.7;
+  transition:border-color .2s;width:100%}
+textarea#prompt:focus{border-color:var(--accent)}
+textarea#prompt::placeholder{color:var(--text3)}
+.ex-btn{text-align:left;background:transparent;border:1px solid var(--border);color:var(--text3);font-family:var(--mono);
+  font-size:8px;padding:4px 8px;cursor:pointer;transition:all .14s;border-radius:2px;display:block;width:100%}
+.ex-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+
+/* GEN BTN */
+.gen-btn{background:linear-gradient(135deg,#006688,#00bfe0);border:none;color:#000;font-family:var(--disp);
+  font-weight:700;font-size:11px;letter-spacing:2.5px;padding:13px 10px;cursor:pointer;text-transform:uppercase;
+  transition:all .2s;position:relative;overflow:hidden;flex-shrink:0}
+.gen-btn::after{content:'';position:absolute;top:-50%;left:-60%;width:40%;height:200%;
+  background:rgba(255,255,255,.12);transform:skewX(-20deg);animation:shimmer 3s infinite}
+@keyframes shimmer{0%{left:-60%}100%{left:160%}}
+.gen-btn:hover:not(:disabled){box-shadow:0 0 28px rgba(0,212,255,.3)}
+.gen-btn:disabled{background:var(--panel2);color:var(--text3);cursor:not-allowed}
+.gen-btn:disabled::after{display:none}
+.gen-hint{font-size:8px;opacity:.5;font-family:var(--mono)}
+
+/* RIGHT PANEL */
+.right{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.tabs-bar{display:flex;align-items:center;justify-content:space-between;padding:0 12px;
+  border-bottom:1px solid var(--border);background:var(--panel);flex-shrink:0;height:40px}
+.tabs{display:flex}
+.tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text2);font-family:var(--mono);
+  font-size:8px;letter-spacing:2px;padding:0 12px;height:40px;cursor:pointer;transition:all .14s;text-transform:uppercase}
+.tab:hover{color:var(--text)}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.actions{display:flex;gap:5px}
+.act{background:transparent;border:1px solid var(--border2);color:var(--text2);font-family:var(--mono);
+  font-size:8px;padding:4px 9px;cursor:pointer;transition:all .14s;border-radius:2px}
+.act:hover{border-color:var(--accent3);color:var(--accent3)}
+.act.red:hover{border-color:var(--accent2)!important;color:var(--accent2)!important}
+
+/* CODE */
+.code-wrap{flex:1;overflow-y:auto;background:var(--bg);padding:12px 16px;font-family:var(--mono);font-size:12px;line-height:1.9}
+.code-wrap::-webkit-scrollbar{width:5px}
+.code-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.cl{display:flex;gap:10px}
+.ln{color:var(--text3);user-select:none;min-width:36px;text-align:right;flex-shrink:0}
+.gc{color:var(--accent)}.mc{color:var(--accent2)}.xy{color:var(--accent3)}.fc{color:var(--warn)}.tc{color:var(--purple)}
+.cc{color:#2d4a58;font-style:italic}.hc{color:var(--accent);font-weight:bold}
+
+/* EMPTY / LOADING */
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--text3);padding:40px}
+.ering{width:70px;height:70px;border-radius:50%;border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;animation:rot 8s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.etitle{font-family:var(--disp);font-size:11px;letter-spacing:4px;color:var(--text2)}
+.esub{font-family:var(--mono);font-size:9px;text-align:center;max-width:300px;line-height:1.8}
+.loading{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.spinner{width:48px;height:48px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ltxt{font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:3px;animation:pulse 1s infinite}
+.lsub{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px}
+
+/* STATS BAR */
+.stats-bar{display:flex;border-top:1px solid var(--border);background:var(--panel);flex-shrink:0;overflow-x:auto}
+.stat{padding:5px 13px;border-right:1px solid var(--border);flex-shrink:0}
+.sl{font-family:var(--mono);font-size:7px;color:var(--text3);letter-spacing:1px}
+.sv{font-family:var(--mono);font-size:12px;color:var(--accent)}
+
+/* ANALYSIS */
+.analysis{flex:1;overflow-y:auto;padding:16px;background:var(--bg)}
+.analysis::-webkit-scrollbar{width:5px}
+.analysis::-webkit-scrollbar-thumb{background:var(--border2)}
+.an-h{font-family:var(--disp);font-size:9px;color:var(--accent);letter-spacing:3px;text-transform:uppercase;
+  margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.an-h:first-child{margin-top:0}
+.an-p{font-size:13px;color:var(--text);line-height:1.7;margin-bottom:4px}
+
+/* PARAMS TAB */
+.ptab{flex:1;overflow-y:auto;padding:14px;background:var(--bg);display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start}
+.ptab::-webkit-scrollbar{width:5px}
+.ptab::-webkit-scrollbar-thumb{background:var(--border2)}
+.pcard{background:var(--panel2);border:1px solid var(--border);padding:11px;border-radius:2px}
+.pcard.full{grid-column:1/-1}
+.pct{font-family:var(--mono);font-size:7px;color:var(--text3);letter-spacing:2px;margin-bottom:8px}
+.pr{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border)}
+.pr:last-child{border-bottom:none}
+.pk{font-family:var(--mono);font-size:9px;color:var(--text2)}
+.pv{font-family:var(--mono);font-size:9px;color:var(--accent3)}
+.praw{font-family:var(--mono);font-size:9px;color:var(--text2);line-height:1.8;white-space:pre-wrap}
+
+/* DRAWER */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;opacity:0;pointer-events:none;transition:opacity .3s}
+.overlay.show{opacity:1;pointer-events:all}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:340px;background:var(--panel);border-left:1px solid var(--border);
+  z-index:501;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+.drawer.open{transform:translateX(0)}
+.dhead{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.dtitle{font-family:var(--disp);font-size:9px;color:var(--accent);letter-spacing:3px}
+.dclose{background:transparent;border:1px solid var(--border2);color:var(--text2);font-family:var(--mono);font-size:8px;padding:4px 8px;cursor:pointer;border-radius:2px}
+.dlist{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px}
+.dlist::-webkit-scrollbar{width:4px}
+.dlist::-webkit-scrollbar-thumb{background:var(--border2)}
+.hi{background:var(--panel2);border:1px solid var(--border);padding:10px;border-radius:2px;cursor:pointer;transition:border-color .15s;position:relative}
+.hi:hover{border-color:var(--accent)}
+.hn{font-family:var(--mono);font-size:9px;color:var(--text);margin-bottom:3px;padding-right:20px}
+.hm{font-family:var(--mono);font-size:7px;color:var(--text3)}
+.hdel{position:absolute;top:8px;right:8px;background:transparent;border:none;color:var(--text3);font-family:var(--mono);font-size:10px;cursor:pointer;padding:0 3px}
+.hdel:hover{color:var(--accent2)}
+.hempty{font-family:var(--mono);font-size:9px;color:var(--text3);text-align:center;padding:40px;letter-spacing:2px}
+
+/* SETUP SCREEN */
+.setup{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px}
+.setup-card{background:var(--panel);border:1px solid var(--border2);border-radius:4px;padding:36px;max-width:520px;width:100%}
+.s-logo{font-family:var(--disp);font-weight:900;font-size:22px;letter-spacing:5px;color:var(--accent);text-shadow:0 0 20px rgba(0,212,255,.5);text-align:center;margin-bottom:4px}
+.s-logo span{color:var(--accent2)}
+.s-tag{font-family:var(--mono);font-size:9px;color:var(--text3);text-align:center;letter-spacing:3px;margin-bottom:28px}
+.s-step{display:flex;gap:12px;margin-bottom:18px;align-items:flex-start}
+.s-num{width:24px;height:24px;border-radius:50%;border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.s-body{flex:1}
+.s-title{font-family:var(--mono);font-size:10px;color:var(--text);letter-spacing:1px;margin-bottom:5px}
+.s-desc{font-family:var(--mono);font-size:9px;color:var(--text2);line-height:1.7}
+.s-desc a{color:var(--accent);text-decoration:none}
+.s-desc a:hover{text-decoration:underline}
+.s-row{display:flex;gap:7px;margin-top:8px}
+.s-input{flex:1;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 11px;border-radius:2px;outline:none;transition:border-color .2s}
+.s-input:focus{border-color:var(--accent)}
+.s-save{background:var(--accent);border:none;color:#000;font-family:var(--mono);font-weight:bold;font-size:10px;letter-spacing:2px;padding:7px 16px;cursor:pointer;border-radius:2px;white-space:nowrap}
+.s-save:hover{box-shadow:0 0 20px rgba(0,212,255,.3)}
+.s-free{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:20px;padding:9px;background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.2);border-radius:2px}
+.s-free-t{font-family:var(--mono);font-size:9px;color:var(--accent3);letter-spacing:1px}
+
+/* TOAST */
+.toast{position:fixed;bottom:16px;right:16px;z-index:1000;background:var(--panel);border:1px solid var(--accent3);color:var(--accent3);
+  font-family:var(--mono);font-size:9px;letter-spacing:1px;padding:7px 13px;border-radius:2px;transform:translateY(60px);opacity:0;transition:all .28s}
+.toast.show{transform:translateY(0);opacity:1}
+
+/* MOBILE */
+@media(max-width:768px){
+  .hbadges{display:none}
+  .logo-sub{display:none}
+  .sidebar{position:fixed;top:50px;left:0;right:0;bottom:0;z-index:100;width:100%;transform:translateX(-100%)}
+  .sidebar.mob{transform:translateX(0)}
+  .ptab{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<div class="app">
+
+  <!-- SETUP SCREEN -->
+  <div class="setup" id="setup">
+    <div class="setup-card">
+      <div class="s-logo">G<span>·</span>FORGE</div>
+      <div class="s-tag">AI CNC G-CODE GENERATOR · UNLIMITED FREE USE</div>
+
+      <div class="s-step">
+        <div class="s-num">1</div>
+        <div class="s-body">
+          <div class="s-title">GET YOUR FREE GOOGLE GEMINI KEY</div>
+          <div class="s-desc">
+            Go to <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com/app/apikey</a> — sign in with Google and click <strong style="color:#c0d0e0">Create API Key</strong>. Completely free. <strong style="color:#00ff88">1,500 programs/day</strong> at no cost.
+          </div>
+        </div>
+      </div>
+
+      <div class="s-step">
+        <div class="s-num">2</div>
+        <div class="s-body">
+          <div class="s-title">PASTE YOUR KEY BELOW (starts with AIzaSy...)</div>
+          <div class="s-row">
+            <input class="s-input" id="keyInput" type="password" placeholder="AIzaSy..." />
+            <button class="s-save" onclick="saveKey()">SAVE &amp; LAUNCH</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="s-step">
+        <div class="s-num">3</div>
+        <div class="s-body">
+          <div class="s-title">ADD TO HOME SCREEN</div>
+          <div class="s-desc">iPhone: Open in Safari → Share → Add to Home Screen. Android: Chrome → ⋮ → Add to Home Screen.</div>
+        </div>
+      </div>
+
+      <div class="s-free">
+        <div class="sdot"></div>
+        <div class="s-free-t">✓ FREE · 1,500/DAY · NO CREDIT CARD · NO SUBSCRIPTION · STORED ON YOUR DEVICE ONLY</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <circle cx="11" cy="11" r="9" stroke="#00d4ff" stroke-width="1.2"/>
+        <circle cx="11" cy="11" r="3.5" stroke="#00d4ff" stroke-width="1.2"/>
+        <line x1="11" y1="2" x2="11" y2="7.5" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="11" y1="14.5" x2="11" y2="20" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="2" y1="11" x2="7.5" y2="11" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="14.5" y1="11" x2="20" y2="11" stroke="#00d4ff" stroke-width="1.5"/>
+        <circle cx="11" cy="11" r="1.6" fill="#00d4ff"/>
+      </svg>
+      G<span class="logo-dot">·</span>FORGE
+      <span class="logo-sub">GEMINI FREE</span>
+    </div>
+    <div class="hbadges">
+      <span class="hbadge" id="b-ctrl">FANUC</span>
+      <span class="hbadge" id="b-mach">3-AXIS MILL</span>
+      <span class="hbadge" id="b-mat">ALUMINUM 6061</span>
+      <span class="hbadge g">FREE · 1500/DAY</span>
+    </div>
+    <div class="hbtns">
+      <div class="sdot"></div>
+      <button class="hbtn" onclick="document.getElementById('setup').style.display='flex'">🔑 KEY</button>
+      <button class="hbtn" onclick="openDrawer()">📋 HISTORY</button>
+      <button class="hbtn" id="mob-btn" onclick="toggleMob()" style="display:none">☰ PANEL</button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sec-head"><span class="sec-dot"></span>MACHINE CONFIG</div>
+
+      <div class="pblock">
+        <div class="g2">
+          <div class="field">
+            <div class="flabel">Controller</div>
+            <select class="fi" id="controller" onchange="updateBadges()">
+              <option>FANUC</option><option>HAAS</option><option>MAZAK</option>
+              <option>Siemens 840D</option><option>Okuma OSP</option>
+              <option>Mitsubishi</option><option>Generic ISO</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="flabel">Machine Type</div>
+            <select class="fi" id="machType" onchange="updateBadges()">
+              <option>3-Axis Mill</option><option>4-Axis Mill</option><option>5-Axis Mill</option>
+              <option>2-Axis Lathe</option><option>Mill-Turn</option>
+              <option>EDM Wire</option><option>Router</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="flabel">Units</div>
+            <select class="fi" id="units">
+              <option>Metric (mm)</option><option>Imperial (in)</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="flabel">Material</div>
+            <select class="fi" id="material" onchange="updateBadges()">
+              <option>Aluminum 6061</option><option>Steel 1018</option><option>Steel 4140</option>
+              <option>Stainless 304</option><option>Titanium Ti-6Al-4V</option>
+              <option>Inconel 718</option><option>Brass</option><option>Copper</option>
+              <option>HDPE</option><option>Delrin (POM)</option>
+              <option>Carbon Fiber</option><option>Wood/MDF</option>
+            </select>
+          </div>
+        </div>
+        <div class="g3" style="margin-top:8px">
+          <div class="field"><div class="flabel">Tool Ø</div><input class="fi" type="number" id="toolDia" value="10" step="0.1"></div>
+          <div class="field"><div class="flabel">RPM</div><input class="fi" type="number" id="rpm" value="3000" step="100"></div>
+          <div class="field"><div class="flabel">Feed</div><input class="fi" type="number" id="feed" value="800" step="10"></div>
+          <div class="field"><div class="flabel">DOC</div><input class="fi" type="number" id="doc" value="2" step="0.1"></div>
+          <div class="field"><div class="flabel">WOC</div><input class="fi" type="number" id="woc" value="8" step="0.1"></div>
+          <div class="field">
+            <div class="flabel">Coolant</div>
+            <select class="fi" id="coolant">
+              <option>Flood</option><option>Mist</option><option>Air Blast</option>
+              <option>Dry</option><option>Through-Spindle</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-head"><span class="sec-dot"></span>OPERATIONS</div>
+      <div class="chips" id="chips-wrap">
+        <!-- filled by JS -->
+      </div>
+
+      <div class="sec-head"><span class="sec-dot"></span>PART DESCRIPTION</div>
+      <div class="prompt-area">
+        <div class="pmeta">
+          <span class="flabel">DESCRIBE YOUR OPERATION</span>
+          <span class="pchars" id="pchars">0</span>
+        </div>
+        <textarea id="prompt" placeholder="Describe your part or operation...&#10;&#10;e.g. &quot;Machine a 50×30mm pocket 10mm deep with 4mm corner radii, leaving 0.2mm finish stock, HSM toolpath&quot;" oninput="document.getElementById('pchars').textContent=this.value.length"></textarea>
+        <div class="flabel" style="margin-bottom:4px">QUICK EXAMPLES</div>
+        <div id="examples-wrap"></div>
+      </div>
+
+      <button class="gen-btn" id="genBtn" onclick="generate()">
+        ⚡ GENERATE G-CODE <span class="gen-hint">[Ctrl+↵]</span>
+      </button>
+    </aside>
+
+    <!-- RIGHT PANEL -->
+    <main class="right">
+      <div class="tabs-bar">
+        <div class="tabs">
+          <button class="tab on" onclick="switchTab('gcode',this)">G-CODE</button>
+          <button class="tab" onclick="switchTab('analysis',this)">ANALYSIS</button>
+          <button class="tab" onclick="switchTab('params',this)">PARAMETERS</button>
+        </div>
+        <div class="actions">
+          <button class="act" onclick="copyCode()">⎘ COPY</button>
+          <button class="act" onclick="exportNC()">↓ .NC FILE</button>
+          <button class="act red" onclick="clearAll()">✕ CLEAR</button>
+        </div>
+      </div>
+
+      <!-- TAB PANELS -->
+      <div id="tab-gcode" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+        <div class="empty" id="empty-state">
+          <div class="ering">
+            <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+              <circle cx="15" cy="15" r="12" stroke="#1a2430" stroke-width="1"/>
+              <circle cx="15" cy="15" r="5" stroke="#1a2430" stroke-width="1"/>
+              <line x1="15" y1="3" x2="15" y2="10" stroke="#1a2430" stroke-width="1"/>
+              <line x1="15" y1="20" x2="15" y2="27" stroke="#1a2430" stroke-width="1"/>
+              <line x1="3" y1="15" x2="10" y2="15" stroke="#1a2430" stroke-width="1"/>
+              <line x1="20" y1="15" x2="27" y2="15" stroke="#1a2430" stroke-width="1"/>
+              <circle cx="15" cy="15" r="2" fill="#1a2430"/>
+            </svg>
+          </div>
+          <div class="etitle">AWAITING TOOLPATH INPUT</div>
+          <div class="esub">Configure machine · Select operations · Describe part · Press Generate</div>
+        </div>
+        <div class="loading" id="loading-state" style="display:none">
+          <div class="spinner"></div>
+          <div class="ltxt">COMPUTING TOOLPATH</div>
+          <div class="lsub">GEMINI AI · ANALYZING · WRITING G-CODE</div>
+        </div>
+        <div class="code-wrap" id="code-out" style="display:none"></div>
+      </div>
+
+      <div id="tab-analysis" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+        <div class="analysis" id="analysis-out">
+          <div class="empty"><div class="etitle">NO ANALYSIS YET</div><div class="esub">Generate a program first.</div></div>
+        </div>
+      </div>
+
+      <div id="tab-params" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+        <div class="ptab" id="params-out">
+          <div style="grid-column:1/-1;display:flex;align-items:center;justify-content:center;height:200px">
+            <span style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:2px">NO PROGRAM LOADED</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATS BAR -->
+      <div class="stats-bar">
+        <div class="stat"><div class="sl">LINES</div><div class="sv" id="s-lines">—</div></div>
+        <div class="stat"><div class="sl">BLOCKS</div><div class="sv" id="s-blocks">—</div></div>
+        <div class="stat"><div class="sl">TOOLS</div><div class="sv" id="s-tools">—</div></div>
+        <div class="stat"><div class="sl">EST. CYCLE</div><div class="sv" id="s-cycle">—</div></div>
+        <div class="stat"><div class="sl">RAPIDS</div><div class="sv" id="s-rapids">—</div></div>
+        <div class="stat"><div class="sl">FEEDS</div><div class="sv" id="s-feeds">—</div></div>
+        <div class="stat"><div class="sl">FREE LIMIT</div><div class="sv" style="color:var(--accent3)">1500/DAY</div></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- HISTORY DRAWER -->
+  <div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+  <div class="drawer" id="drawer">
+    <div class="dhead">
+      <span class="dtitle">PROGRAM HISTORY</span>
+      <button class="dclose" onclick="closeDrawer()">✕ CLOSE</button>
+    </div>
+    <div class="dlist" id="dlist"></div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────
+let apiKey = localStorage.getItem('gforge-key') || '';
+let currentCode = '';
+let history = [];
+let activeOps = ['POCKET'];
+let activeTab = 'gcode';
+
+const OPERATIONS = ['POCKET','CONTOUR','DRILL','BORE','THREAD','FACE','ENGRAVE','3D SURF','TURN OD','TURN ID','GROOVE','PROBE','HSM','ADAPTIVE','SCALLOP','CHAMFER'];
+const EXAMPLES = [
+  '4×4 array of Ø15mm × 8mm deep circular pockets on 200×200mm plate, 50mm pitch. HSM trochoidal entry, 2mm DOC rough then 0.2mm finish stock. G54 work offset.',
+  '8× M8 tapped holes on Ø100mm bolt circle 20mm deep + 4× Ø12mm counterbores 5mm deep at 45° offset. Spot drill, peck drill, G84 rigid tapping.',
+  '3D finish pass on convex dome Ø80mm × 20mm tall. 6mm ball-nose, 0.3mm stepover raster X, climb milling. G43 H01. F1200 S12000.',
+  'Full lathe shaft: Ø50mm × 200mm bar. Face, centre drill, turn Ø30×80mm, Ø20×60mm, 3mm groove, M30×2.0 thread 40mm, cutoff. G96 CSS, G71 rough, G70 finish.',
+  'Multi-op: (1) Face 150×100mm (2) Rough pocket 80×60×15mm 0.3mm stock (3) Semi-finish 0.1mm (4) Finish contour (5) 4× Ø8mm corner holes. Sub-programs, G54, G43.'
+];
+
+// ── Init ──────────────────────────────────────────────────────────────────
+(function init() {
+  // Load history
+  try { history = JSON.parse(localStorage.getItem('gforge-hist') || '[]'); } catch {}
+
+  // Build operation chips
+  const wrap = document.getElementById('chips-wrap');
+  OPERATIONS.forEach(op => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (activeOps.includes(op) ? ' on' : '');
+    b.textContent = op;
+    b.onclick = () => toggleOp(op, b);
+    wrap.appendChild(b);
+  });
+
+  // Build examples
+  const ew = document.getElementById('examples-wrap');
+  EXAMPLES.forEach((ex, i) => {
+    const b = document.createElement('button');
+    b.className = 'ex-btn';
+    b.textContent = '▸ ' + ex.slice(0, 55) + '…';
+    b.onclick = () => { document.getElementById('prompt').value = ex; document.getElementById('pchars').textContent = ex.length; };
+    ew.appendChild(b);
+  });
+
+  // Show setup if no key
+  if (apiKey) document.getElementById('setup').style.display = 'none';
+
+  // Mobile button visibility
+  if (window.innerWidth <= 768) document.getElementById('mob-btn').style.display = '';
+
+  // Keyboard shortcut
+  document.addEventListener('keydown', e => { if ((e.ctrlKey||e.metaKey) && e.key==='Enter') generate(); });
+
+  // Key input enter
+  document.getElementById('keyInput').addEventListener('keydown', e => { if (e.key==='Enter') saveKey(); });
+})();
+
+function saveKey() {
+  const k = document.getElementById('keyInput').value.trim();
+  if (!k) return;
+  apiKey = k;
+  localStorage.setItem('gforge-key', k);
+  document.getElementById('setup').style.display = 'none';
+  toast('✓ API KEY SAVED — READY TO GENERATE');
+}
+
+function toggleOp(op, btn) {
+  if (activeOps.includes(op)) {
+    activeOps = activeOps.filter(o => o !== op);
+    btn.classList.remove('on');
+  } else {
+    activeOps.push(op);
+    btn.classList.add('on');
+  }
+}
+
+function updateBadges() {
+  document.getElementById('b-ctrl').textContent = document.getElementById('controller').value.toUpperCase();
+  document.getElementById('b-mach').textContent = document.getElementById('machType').value.toUpperCase();
+  document.getElementById('b-mat').textContent = document.getElementById('material').value.toUpperCase();
+}
+
+function toggleMob() {
+  document.getElementById('sidebar').classList.toggle('mob');
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────
+function switchTab(name, btn) {
+  activeTab = name;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  btn.classList.add('on');
+  ['gcode','analysis','params'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t===name ? 'flex' : 'none';
+  });
+}
+
+// ── Build system prompt ───────────────────────────────────────────────────
+function buildSystemPrompt() {
+  const ctrl = document.getElementById('controller').value;
+  const mach = document.getElementById('machType').value;
+  const units = document.getElementById('units').value;
+  const mat = document.getElementById('material').value;
+  const dia = document.getElementById('toolDia').value;
+  const rpm = document.getElementById('rpm').value;
+  const feed = document.getElementById('feed').value;
+  const doc = document.getElementById('doc').value;
+  const woc = document.getElementById('woc').value;
+  const cool = document.getElementById('coolant').value;
+  const u = units.includes('mm') ? 'mm' : 'in';
+
+  return `You are an expert CNC programmer with 25+ years programming ${ctrl} controls. Generate complete, production-ready G-code programs.
+
+MACHINE CONFIGURATION:
+- Controller: ${ctrl} | Machine: ${mach} | Units: ${units}
+- Material: ${mat} | Tool Diameter: ${dia}${u}
+- Spindle: ${rpm} RPM | Feed: ${feed}${u}/min | DOC: ${doc}${u} | WOC: ${woc}${u}
+- Coolant: ${cool} | Operations: ${activeOps.join(', ')}
+
+STRICT OUTPUT RULES:
+1. Output COMPLETE runnable G-code — NO ellipsis, NO "...", write EVERY line
+2. Use correct ${ctrl}-specific syntax and canned cycles
+3. Header: O-number, program name comment, controller type
+4. Safety block first: G17 G40 G49 G80 G91.1
+5. Work offset G54, tool changes T##M06, G43 H## before cutting
+6. Canned cycles: G81/G83 drill, G84 rigid tap, G85/G76 bore, G71/G72/G70 lathe, G73 peck
+7. Arcs: G02/G03 with I/J/K or R values
+8. M08 coolant ON / M09 OFF / M30 end
+9. Comment every major section with (PARENTHESES)
+10. Use sub-programs M98/M99 for repeated features
+11. Complex programs should be 100-500+ lines — be thorough
+
+After the G-code, output EXACTLY:
+---ANALYSIS---
+Program overview, operations, tool list, setup notes, estimated cycle time, warnings.
+---PARAMETERS---
+All cutting parameters used in a clean structured list.`;
+}
+
+// ── Gemini API call ───────────────────────────────────────────────────────
+async function callGemini(userPrompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildSystemPrompt() + '\n\n---\n\nUSER REQUEST:\n' + userPrompt }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || 'Gemini API error');
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Empty response from Gemini');
+  return text;
+}
+
+// ── Generate ──────────────────────────────────────────────────────────────
+async function generate() {
+  const prompt = document.getElementById('prompt').value.trim();
+  if (!prompt) { toast('⚠ ENTER A PART DESCRIPTION', '#ffcc00'); return; }
+  if (!apiKey) { document.getElementById('setup').style.display = 'flex'; return; }
+
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+  btn.innerHTML = '⟳ COMPUTING TOOLPATH…';
+  switchToGcodeTab();
+
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('loading-state').style.display = 'flex';
+  document.getElementById('code-out').style.display = 'none';
+
+  if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('mob');
+
+  try {
+    const full = await callGemini(prompt);
+    // Strip markdown fences Gemini sometimes adds
+    const clean = full.replace(/```[a-z]*\n?/gi, '').replace(/```/g, '');
+    const parts = clean.split(/---ANALYSIS---|---PARAMETERS---/i);
+    const code = (parts[0] || '').trim();
+    const analysis = (parts[1] || '').trim();
+    const params = (parts[2] || '').trim();
+
+    currentCode = code;
+    renderCode(code);
+    renderAnalysis(analysis);
+    renderParams(params);
+    updateStats(code);
+    toast('✓ PROGRAM GENERATED');
+    saveToHistory({ prompt: prompt.slice(0,55)+(prompt.length>55?'…':''), code, analysis, params, cfg: getConfig(), ts: new Date().toLocaleString() });
+
+  } catch(e) {
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'flex';
+    document.getElementById('empty-state').innerHTML = `<div class="etitle" style="color:var(--accent2)">ERROR</div><div class="esub">${e.message}</div><div class="esub" style="margin-top:8px;color:var(--text3)">Check your API key or try again.</div>`;
+    toast('✗ ' + e.message, '#ff6b35');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '⚡ GENERATE G-CODE <span class="gen-hint">[Ctrl+↵]</span>';
+}
+
+function switchToGcodeTab() {
+  activeTab = 'gcode';
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('on', i===0));
+  document.getElementById('tab-gcode').style.display = 'flex';
+  document.getElementById('tab-analysis').style.display = 'none';
+  document.getElementById('tab-params').style.display = 'none';
+}
+
+// ── Syntax highlight ──────────────────────────────────────────────────────
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function highlightLine(line) {
+  const t = line.trim();
+  if (!t) return '';
+  if (t.startsWith('(') || t.startsWith(';')) return `<span class="cc">${esc(line)}</span>`;
+  if (t.startsWith('%') || /^O\d+/.test(t)) return `<span class="hc">${esc(line)}</span>`;
+
+  let out = esc(line);
+  out = out.replace(/\(([^)]*)\)/g, '<span class="cc">($1)</span>');
+  out = out.replace(/\b(G\d+\.?\d*)\b/g, '<span class="gc">$1</span>');
+  out = out.replace(/\b(M\d+)\b/g, '<span class="mc">$1</span>');
+  out = out.replace(/\b(T\d+|H\d+|D\d+)\b/g, '<span class="tc">$1</span>');
+  out = out.replace(/\b(F[\d.]+|S[\d.]+)\b/g, '<span class="fc">$1</span>');
+  out = out.replace(/\b([XYZABCIJKR]-?[\d.]+)\b/g, '<span class="xy">$1</span>');
+  return out;
+}
+
+function renderCode(code) {
+  const lines = code.split('\n');
+  let html = '';
+  lines.forEach((line, i) => {
+    const ln = String(i+1).padStart(4,' ');
+    html += `<div class="cl"><span class="ln">${ln}</span><span>${highlightLine(line)}</span></div>`;
+  });
+  const out = document.getElementById('code-out');
+  out.innerHTML = html;
+  document.getElementById('loading-state').style.display = 'none';
+  out.style.display = 'block';
+}
+
+function renderAnalysis(text) {
+  if (!text) return;
+  const lines = text.split('\n');
+  let html = '';
+  lines.forEach(line => {
+    const clean = line.replace(/^[*#\-]+\s*/,'').trim();
+    if (!clean) return;
+    if (/^[A-Z][A-Z\s:]{3,}$/.test(clean) || clean.endsWith(':')) {
+      html += `<div class="an-h">${clean.replace(/:$/,'')}</div>`;
+    } else {
+      html += `<div class="an-p">${clean}</div>`;
+    }
+  });
+  document.getElementById('analysis-out').innerHTML = html || '<div class="empty"><div class="etitle">NO ANALYSIS</div></div>';
+}
+
+function renderParams(extra) {
+  const cfg = getConfig();
+  const u = cfg.units.includes('mm') ? 'mm' : 'in';
+  let html = `
+    <div class="pcard"><div class="pct">MACHINE</div>
+      <div class="pr"><span class="pk">Controller</span><span class="pv">${cfg.controller}</span></div>
+      <div class="pr"><span class="pk">Type</span><span class="pv">${cfg.machType}</span></div>
+      <div class="pr"><span class="pk">Units</span><span class="pv">${cfg.units}</span></div>
+      <div class="pr"><span class="pk">Material</span><span class="pv">${cfg.material}</span></div>
+    </div>
+    <div class="pcard"><div class="pct">CUTTING</div>
+      <div class="pr"><span class="pk">Tool Ø</span><span class="pv">${cfg.toolDia}${u}</span></div>
+      <div class="pr"><span class="pk">Spindle</span><span class="pv">${cfg.rpm} RPM</span></div>
+      <div class="pr"><span class="pk">Feed Rate</span><span class="pv">${cfg.feed} ${u}/min</span></div>
+      <div class="pr"><span class="pk">DOC</span><span class="pv">${cfg.doc}${u}</span></div>
+      <div class="pr"><span class="pk">WOC</span><span class="pv">${cfg.woc}${u}</span></div>
+    </div>
+    <div class="pcard"><div class="pct">SETUP</div>
+      <div class="pr"><span class="pk">Coolant</span><span class="pv">${cfg.coolant}</span></div>
+      <div class="pr"><span class="pk">Operations</span><span class="pv">${activeOps.join(', ')}</span></div>
+      <div class="pr"><span class="pk">AI Model</span><span class="pv">Gemini 1.5 Flash</span></div>
+    </div>`;
+  if (extra) {
+    html += `<div class="pcard full"><div class="pct">AI GENERATED PARAMETERS</div><pre class="praw">${extra}</pre></div>`;
+  }
+  document.getElementById('params-out').innerHTML = html;
+}
+
+function updateStats(code) {
+  const lines = code.split('\n').filter(l => l.trim());
+  const rapids = (code.match(/\bG0?0\b/g)||[]).length;
+  const feeds = (code.match(/\bG0?[123]\b/g)||[]).length;
+  const tools = [...new Set((code.match(/\bT\d{1,2}\b/g)||[]))].length;
+  const cycle = Math.round((feeds*2.2+rapids*0.4)/60);
+  document.getElementById('s-lines').textContent = lines.length;
+  document.getElementById('s-blocks').textContent = lines.filter(l=>!l.trim().startsWith('(')).length;
+  document.getElementById('s-tools').textContent = tools;
+  document.getElementById('s-cycle').textContent = cycle+' min';
+  document.getElementById('s-rapids').textContent = rapids;
+  document.getElementById('s-feeds').textContent = feeds;
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────
+function copyCode() {
+  if (!currentCode) { toast('⚠ NO CODE TO COPY','#ffcc00'); return; }
+  navigator.clipboard.writeText(currentCode).then(() => toast('✓ COPIED TO CLIPBOARD'));
+}
+
+function exportNC() {
+  if (!currentCode) { toast('⚠ NO CODE TO EXPORT','#ffcc00'); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([currentCode],{type:'text/plain'}));
+  a.download = `gforge_${document.getElementById('controller').value}_${Date.now()}.nc`;
+  a.click();
+  toast('✓ EXPORTED .NC FILE');
+}
+
+function clearAll() {
+  currentCode = '';
+  document.getElementById('code-out').style.display = 'none';
+  document.getElementById('empty-state').style.display = 'flex';
+  document.getElementById('empty-state').innerHTML = `
+    <div class="ering"><svg width="30" height="30" viewBox="0 0 30 30" fill="none"><circle cx="15" cy="15" r="12" stroke="#1a2430" stroke-width="1"/><circle cx="15" cy="15" r="5" stroke="#1a2430" stroke-width="1"/><line x1="15" y1="3" x2="15" y2="10" stroke="#1a2430" stroke-width="1"/><line x1="15" y1="20" x2="15" y2="27" stroke="#1a2430" stroke-width="1"/><line x1="3" y1="15" x2="10" y2="15" stroke="#1a2430" stroke-width="1"/><line x1="20" y1="15" x2="27" y2="15" stroke="#1a2430" stroke-width="1"/><circle cx="15" cy="15" r="2" fill="#1a2430"/></svg></div>
+    <div class="etitle">AWAITING TOOLPATH INPUT</div>
+    <div class="esub">Configure machine · Select operations · Describe part · Press Generate</div>`;
+  document.getElementById('analysis-out').innerHTML = '<div class="empty"><div class="etitle">NO ANALYSIS YET</div><div class="esub">Generate a program first.</div></div>';
+  document.getElementById('params-out').innerHTML = '<div style="grid-column:1/-1;display:flex;align-items:center;justify-content:center;height:200px"><span style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:2px">NO PROGRAM LOADED</span></div>';
+  ['s-lines','s-blocks','s-tools','s-cycle','s-rapids','s-feeds'].forEach(id => document.getElementById(id).textContent='—');
+  toast('✓ CLEARED');
+}
+
+// ── History ───────────────────────────────────────────────────────────────
+function getConfig() {
+  return {
+    controller: document.getElementById('controller').value,
+    machType: document.getElementById('machType').value,
+    units: document.getElementById('units').value,
+    material: document.getElementById('material').value,
+    toolDia: document.getElementById('toolDia').value,
+    rpm: document.getElementById('rpm').value,
+    feed: document.getElementById('feed').value,
+    doc: document.getElementById('doc').value,
+    woc: document.getElementById('woc').value,
+    coolant: document.getElementById('coolant').value,
+  };
+}
+
+function saveToHistory(item) {
+  history.unshift({ id: Date.now(), ...item });
+  history = history.slice(0, 30);
+  localStorage.setItem('gforge-hist', JSON.stringify(history));
+}
+
+function openDrawer() {
+  renderDrawer();
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('drawer').classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('drawer').classList.remove('open');
+}
+
+function renderDrawer() {
+  const list = document.getElementById('dlist');
+  if (history.length === 0) {
+    list.innerHTML = '<div class="hempty">NO PROGRAMS SAVED YET</div>';
+    return;
+  }
+  list.innerHTML = history.map(item => `
+    <div class="hi" onclick="loadHist(${item.id})">
+      <button class="hdel" onclick="event.stopPropagation();deleteHist(${item.id})">✕</button>
+      <div class="hn">${item.prompt}</div>
+      <div class="hm">${item.cfg?.controller||''} · ${item.cfg?.material||''} · ${item.ts||''}</div>
+    </div>`).join('');
+}
+
+function loadHist(id) {
+  const item = history.find(h => h.id === id);
+  if (!item) return;
+  currentCode = item.code;
+  if (item.cfg) {
+    Object.keys(item.cfg).forEach(k => {
+      const el = document.getElementById(k === 'machType' ? 'machType' : k);
+      if (el) el.value = item.cfg[k];
+    });
+    updateBadges();
+  }
+  renderCode(item.code);
+  renderAnalysis(item.analysis || '');
+  renderParams(item.params || '');
+  updateStats(item.code);
+  closeDrawer();
+  switchToGcodeTab();
+  toast('✓ PROGRAM LOADED');
+}
+
+function deleteHist(id) {
+  history = history.filter(h => h.id !== id);
+  localStorage.setItem('gforge-hist', JSON.stringify(history));
+  renderDrawer();
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+function toast(msg, color='#00ff88') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = color;
+  t.style.color = color;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── Mobile resize ─────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  document.getElementById('mob-btn').style.display = window.innerWidth<=768 ? '' : 'none';
+});
+</script>
+</body>
+</html>
